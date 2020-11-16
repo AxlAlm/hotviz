@@ -4,49 +4,74 @@ from igraph import Graph, EdgeSeq
 import plotly.graph_objects as go
 from pprint import pprint
 import time
-from collections import Counter
+from copy import deepcopy
+import numpy as np
 
+
+def normalize_row_coordinates(plot_data):
+    Y = np.array(plot_data["Y"])
+    X = np.array(plot_data["X"], dtype=float)
+
+    # where level is == 1, this is the level of all trees
+    tree_level_mask = Y==1
+    new_xs = X[tree_level_mask] * ( plot_data["max_width"] /  len(plot_data["tree_widths"]))
+    X[tree_level_mask] = new_xs
+    plot_data["X"] = X.tolist()
+
+    for i in range(1,plot_data["max_depth"]+1):
+        print(i)
+
+
+def set_link_coordinates(plot_data):
+    plot_data.update({
+                    "Ylink": [],
+                    "Xlink": []
+                    })
+    for link_type, idx_of_parent, idx_of_child in plot_data["links"]:
+        plot_data["Xlink"].extend([plot_data["X"][idx_of_parent], plot_data["X"][idx_of_child], None])
+        plot_data["Ylink"].extend([plot_data["Y"][idx_of_parent], plot_data["Y"][idx_of_child], None])
 
 
 def create_trees(items):
     """
-    Parse a list of ints where each int value is interpreted as the point where to where the current index is linked.
-    Creates a tree structured dict.
+        For each node we look for its link in other nodes, if link exists we add node as subtree to the
+        linked node.
+        We set column and row as following:
+        column = nr of nodes on current row + 1
+        row = row of parent + 1
+        
+
+        First we figure out the positions accross X (column) and Y (row) for each  node in the tree.
+
+        Then to make the tree a little bit nicer we normalize the X,Y by the max widths and tree widths
+
+        When we have the new coordinates we can create a list of X,Y coordinates that will be used
+        to link the nodes, these arrays are Xlink and Ylink
+
+
+
+        NOTE! we will later update the columns given the width of each tree.
+        So, we create a mask for selecting the parts we might need to confiugre later
+        a) tree
+        b) tree rows 
+        c) root nodes
+        
+        when we have the order of the column and rows and max width
+        we can apply the following calculations to fix all coordinates
+        
+        a = max(number rows on all levels)
+        c = biggest_row
+        for each row:
+          if row > biggest row:
+              new_columns_coordiantes
+          else:
+              space = a / nr nodes on row
+              new_columns_coordiantes = [i*space for i in row_positions]
+        
     """
     
     def place_node(tree_nodes, node, linked_node, plot_data):
-        """
-        This recursive function, given a node and the linked node (the node which the node links to),
-        will go through the tree node by node and see if the subnodes of a node is == linked node.
 
-        Its a greedy search.
-
-        """
-
-        # For each node we look for its link in other nodes, if link exists we add node as subtree to the
-        # linked node.
-        # We set column and row as following:
-        # column = nr of subtrees of the parent
-        # row = row of parent + 1
-        #
-        # NOTE! we will later update the columns given the width of each tree.
-        # So, we create a mask for selecting the parts we might need to confiugre later
-        # a) tree
-        # b) tree rows 
-        # c) root nodes
-        #
-        # when we have the order of the column and rows and max width
-        # we can apply the following calculations to fix all coordinates
-        # 
-        # a = max(number rows on all levels)
-        # c = biggest_row
-        # for each row:
-        #   if row > biggest row:
-        #       new_columns_coordiantes
-        #   else:
-        #       space = a / nr nodes on row
-        #       new_columns_coordiantes = [i*space for i in row_positions]
-        #
 
         if linked_node in tree_nodes:
             parent_node = tree_nodes[linked_node]
@@ -60,21 +85,24 @@ def create_trees(items):
             plot_data["level_widths"][row] += 1
             column = plot_data["level_widths"][row]
 
+            idx = len(plot_data["X"])
             plot_data["X"].append(column)
             plot_data["Y"].append(row)
             plot_data["root"].append(root)
-            plot_data["Xlink"].extend([parent_node["column"], column, None])
-            plot_data["Ylink"].extend([parent_node["row"], row, None])
+            plot_data["links"].append(("LINK TYPE", parent_node["idx"], idx))
             plot_data["labels"].append(node)
             plot_data["max_depth"] = max(plot_data["max_depth"], row)
-            plot_data["max_widths"][root] = max(plot_data["max_widths"][root], column)
 
             parent_node["subnodes"][node] =  {
                                                 "row":row,        
                                                 "column":column,
-                                                "root":root, 
+                                                "root":root,
+                                                "idx": idx,
                                                 "subnodes":{}
                                                 }
+            
+            # we need to know the width of a tree so we can normalzie the coordinates later
+            plot_data["tree_widths"][root] = max(plot_data["tree_widths"][root], len(parent_node["subnodes"]))
             return True
         else:
             for node_id, node_dict in tree_nodes.items():
@@ -86,12 +114,13 @@ def create_trees(items):
     plot_data = {
                 "X":[],
                 "Y":[], 
-                "Xlink":[], 
-                "Ylink":[],
+                #"Xlink":[], 
+                #"Ylink":[],
+                "links": [],
                 "labels": [],
                 "root":[], 
                 "max_depth":0, 
-                "max_widths":{},
+                "tree_widths":{},
                 "level_widths":{},
                 }
     trees = {}
@@ -106,18 +135,26 @@ def create_trees(items):
         if node == linked_node:
             row = 1
             column = len(trees)+1
+            idx = len(plot_data["X"])
             trees[node] = {
                             "row":row,        
                             "column":column,
-                            "root":node, 
+                            "root":node,
+                            "idx": idx,
                             "subnodes":{}
                             }
             plot_data["X"].append(column)
             plot_data["Y"].append(row)
             plot_data["root"].append(node)
             plot_data["labels"].append(node)
-            plot_data["max_widths"][node] = 1
-            plot_data["level_widths"] = {row:1}
+            plot_data["tree_widths"][node] = 1
+
+            if row not in plot_data["level_widths"]:
+                plot_data["level_widths"][row] = 0
+        
+            else:
+                plot_data["level_widths"][row] += 1
+
             found = True
         else:
             found = place_node(trees, node, linked_node, plot_data)
@@ -129,13 +166,15 @@ def create_trees(items):
         if not found and (node, linked_node) not in unplaced_nodes:
             unplaced_nodes.append((node, linked_node) )
 
-    pprint(trees)
-    pprint(plot_data)
-    for k,v in plot_data.items():
-        if type(v) == int:
-            continue
-        print(k,len(v))
+    plot_data["max_width"] =  sum(plot_data["tree_widths"].values())
+
+    #pprint(trees)
+    #pprint(plot_data)
+    normalize_row_coordinates(plot_data)
+    set_link_coordinates(plot_data)
+
     return plot_data
+
 
 
 def parse_tree(
@@ -262,44 +301,39 @@ def create_ids(nodes):
     return nodes_ids
 
 
-def create_tree_plot(fig, nodes:list, links:list, color:str):
+def sort_data(data):
+    data = deepcopy(data)
+    links = data.pop("links")
+    data_keys = list(data.keys())
+    sorted_values = list(zip(*sorted(zip(*data.values(),links), key=lambda x:x[-1])))
+    sorted_data = {}
+    for i, k in enumerate(data_keys):
+        sorted_data[k] = sorted_values[i]
+    return sorted_data
 
-    nodes_ids = create_ids(nodes)
+def create_tree_plot(fig, data:dict, color:str, group:str): # nodes:list, links:list, color:str):
 
-    print(Counter(links))
-    link_nodes_ids = [nodes_ids[i] for i in links]
-    node_links = list(zip(nodes_ids,link_nodes_ids))
+    data["node_ids"] = create_ids(data["nodes"])
+    data["linked_nodes"] = [data["node_ids"][i] for i in data["links"]]
 
-    plot_data = create_trees(node_links)
+    sorted_data = sort_data(data)
+
+    node_ids = sorted_data.get("node_ids")
+    linked_nodes = sorted_data.get("linked_nodes")
+    link_labels = sorted_data.get("link_labels")
+    texts = sorted_data.get("texts")
+
+    node_tuples = list(zip(node_ids,linked_nodes))
+    plot_data = create_trees(node_tuples)
     
-    # #TODO where do we start
-    # # fix the distances
-    # print("HELLO", width, depth)
-    # max_width = width + 2
-    # max_depth = depth + 2
-    # X, Y, Xlink, Ylink, labels = parse_tree(
-    #                                         my_tree, 
-    #                                         max_depth=max_depth,
-    #                                         max_width=max_width
-    #                                         # start_column=3,
-    #                                         # end_column=max_width,
-    #                                         # row=depth,
-    #                           
-    # 
-    # 
-    # 
-    # 
-    #               )
-
-
     X = plot_data["X"]
     Y = plot_data["Y"]
     Xlink = plot_data["Xlink"]
     Ylink = plot_data["Ylink"]
     labels = plot_data["labels"]
 
-    max_depth = 5
-    max_width = 5
+    max_depth = plot_data["max_depth"] + 1
+    max_width = plot_data["max_width"] + 1
 
     name2pos = {}
     for i,l in enumerate(labels):
@@ -311,14 +345,16 @@ def create_tree_plot(fig, nodes:list, links:list, color:str):
                             y=Y,
                             mode='markers',
                             name='bla',
-                            marker=dict(symbol='circle-dot',
-                                            size=25,
-                                            color='#6175c1',    #'#DB4551',
-                                            line=dict(color='rgb(50,50,50)', width=1)
+                            marker=dict(symbol='diamond-wide',
+                                            size=50,
+                                            color=color,
+                                            #opacity=0.0,
                                             ),
                             text=labels,
+                            hovertext=texts,
                             hoverinfo='text',
-                            opacity=0.8
+                            legendgroup=group,
+                            #opacity=0.8
                             ))
 
     fig.update_layout(
@@ -332,7 +368,9 @@ def create_tree_plot(fig, nodes:list, links:list, color:str):
                             mode='lines',
                             name="True",
                             line=dict(color=color, width=1),
-                            hoverinfo='none'
+                            hoverinfo='none',
+                            legendgroup=group,
+
                             ))
 
     fig.update_layout(
@@ -349,10 +387,11 @@ def hot_tree(gold, pred=None):
 
     #creating gold tree
     name2pos = create_tree_plot(fig, 
-                                nodes=gold["nodes"], 
-                                links=gold["links"], 
-                                color="red"
+                                data=gold,
+                                color="LightBlue",
+                                group="gold"
                                 )
+
 
     if pred:
         create_tree_plot(fig, 
