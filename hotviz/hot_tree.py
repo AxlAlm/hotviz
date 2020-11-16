@@ -6,6 +6,8 @@ from pprint import pprint
 import time
 from copy import deepcopy
 import numpy as np
+import random
+
 
 
 def normalize_row_coordinates(plot_data):
@@ -18,59 +20,44 @@ def normalize_row_coordinates(plot_data):
     X[tree_level_mask] = new_xs
     plot_data["X"] = X.tolist()
 
-    for i in range(1,plot_data["max_depth"]+1):
-        print(i)
+    # for tree in trees:
+    #     for i in range(2,plot_data["max_depth"]+1):
+    #         level_mask = Y == i
+    #         tree_maks = root == tree
+    #         mask  = level_mask + level_mask
+    #         new_xs = X[mask]
+    #         new_xs = new_xs * ( plot_data["max_width"]  ( plot_data["tree_widths"][tree] / len(new_xs) )
+    #         X[level_mask] = new_xs
+    #         plot_data["X"] = X.tolist()
 
 
-def set_link_coordinates(plot_data):
-    plot_data.update({
-                    "Ylink": [],
-                    "Xlink": []
-                    })
-    for link_type, idx_of_parent, idx_of_child in plot_data["links"]:
-        plot_data["Xlink"].extend([plot_data["X"][idx_of_parent], plot_data["X"][idx_of_child], None])
-        plot_data["Ylink"].extend([plot_data["Y"][idx_of_parent], plot_data["Y"][idx_of_child], None])
+def set_link_coordinates(plot_data, nr_styles):
 
-
-def create_trees(items):
-    """
-        For each node we look for its link in other nodes, if link exists we add node as subtree to the
-        linked node.
-        We set column and row as following:
-        column = nr of nodes on current row + 1
-        row = row of parent + 1
+    colors = [ "green", "red", "blue", "black"] #"lightblue", "orange",
+    line_styles = [dict(color=colors[i], width=2, dash='dash') for i in range(nr_styles)]
+    i = 0
+    for link_label, idx_of_parent, idx_of_child in plot_data["links"]:
         
+        if link_label:
+            ykey = f"Y{link_label}link"
+            xkey = f"X{link_label}link"
+        else:
+            ykey = "Ylink"
+            xkey = "Xlink"
 
-        First we figure out the positions accross X (column) and Y (row) for each  node in the tree.
+        if link_label not in plot_data["link_styles"]:
+            plot_data[ykey] = []
+            plot_data[xkey] = []
+            plot_data["link_styles"][link_label] = line_styles[i]
+            i += 1
 
-        Then to make the tree a little bit nicer we normalize the X,Y by the max widths and tree widths
-
-        When we have the new coordinates we can create a list of X,Y coordinates that will be used
-        to link the nodes, these arrays are Xlink and Ylink
+        plot_data[xkey].extend([plot_data["X"][idx_of_parent], plot_data["X"][idx_of_child], None])
+        plot_data[ykey].extend([plot_data["Y"][idx_of_parent], plot_data["Y"][idx_of_child], None])
 
 
+def get_plot_data(items):
 
-        NOTE! we will later update the columns given the width of each tree.
-        So, we create a mask for selecting the parts we might need to confiugre later
-        a) tree
-        b) tree rows 
-        c) root nodes
-        
-        when we have the order of the column and rows and max width
-        we can apply the following calculations to fix all coordinates
-        
-        a = max(number rows on all levels)
-        c = biggest_row
-        for each row:
-          if row > biggest row:
-              new_columns_coordiantes
-          else:
-              space = a / nr nodes on row
-              new_columns_coordiantes = [i*space for i in row_positions]
-        
-    """
-    
-    def place_node(tree_nodes, node, linked_node, plot_data):
+    def place_node(tree_nodes, node, linked_node, link_label, plot_data):
 
 
         if linked_node in tree_nodes:
@@ -89,7 +76,7 @@ def create_trees(items):
             plot_data["X"].append(column)
             plot_data["Y"].append(row)
             plot_data["root"].append(root)
-            plot_data["links"].append(("LINK TYPE", parent_node["idx"], idx))
+            plot_data["links"].append((link_label, parent_node["idx"], idx))
             plot_data["labels"].append(node)
             plot_data["max_depth"] = max(plot_data["max_depth"], row)
 
@@ -106,7 +93,7 @@ def create_trees(items):
             return True
         else:
             for node_id, node_dict in tree_nodes.items():
-                if place_node(node_dict["subnodes"], node, linked_node, plot_data):
+                if place_node(node_dict["subnodes"], node, linked_node, link_label, plot_data):
                     return True
                     
             return False
@@ -114,14 +101,15 @@ def create_trees(items):
     plot_data = {
                 "X":[],
                 "Y":[], 
-                #"Xlink":[], 
-                #"Ylink":[],
                 "links": [],
                 "labels": [],
                 "root":[], 
                 "max_depth":0, 
                 "tree_widths":{},
                 "level_widths":{},
+                "link_styles": {}
+                #"start_x": 0,
+                #"start_y": 0,
                 }
     trees = {}
 
@@ -129,7 +117,7 @@ def create_trees(items):
     while unplaced_nodes:
 
         #node, linked_node = unplaced_nodes[0]
-        node, linked_node  = unplaced_nodes.pop(0)
+        node, linked_node, link_label  = unplaced_nodes.pop(0)
 
         #if we have a node that points to itself its the root of a new tree
         if node == linked_node:
@@ -157,7 +145,7 @@ def create_trees(items):
 
             found = True
         else:
-            found = place_node(trees, node, linked_node, plot_data)
+            found = place_node(trees, node, linked_node, link_label, plot_data)
     
 
         # if node found a place we remove it else we just add it
@@ -168,103 +156,7 @@ def create_trees(items):
 
     plot_data["max_width"] =  sum(plot_data["tree_widths"].values())
 
-    #pprint(trees)
-    #pprint(plot_data)
-    normalize_row_coordinates(plot_data)
-    set_link_coordinates(plot_data)
-
     return plot_data
-
-
-
-def parse_tree(
-                tree, 
-                max_depth=None,
-                max_width=None,
-                # start_column:int,
-                # end_column: int,
-                # row: int,
-                link_to_x=None,
-                link_to_y=None,
-               ):
-    
-    """
-    given a tree structured dict we traverse the tree and create coordinates for 
-    links and for nodes.
-
-    X and Y are for nodes
-    
-    Xlink and Ylink are for linkes. Each X,y coordinate is followed by None to WHAHAHHAHT
-
-    """
-    # row_level = row
-    # column_level = start_column 
-    
-    X = []
-    Y = []
-    Xlink = []
-    Ylink = []
-    labels = []
-    prev_tree_width = 0
-    #colum_step = (end_column-start_column) / len(tree["subtree"].items())
-
-    for name, subtree in tree["subtree"].items():
-        
-        # # if the tree is a root tree
-        if subtree["root"] == name:
-            max_width = subtree["width"] + prev_tree_width +1
-            start_column = prev_tree_width +1
-            prev_tree_width = max_width 
-
-        # + prev_tree_width
-
-        #max_depth = subtree["depth"]
-
-        #     # print(name, subtree)
-        #     # width = subtree["width"]
-        #     # depth = subtree["depth"]
-        #     position = subtree["position"]
-
-        #     c = max_width / 2
-        #     r = max_depth
-        #     prev_tree_width =+ max_width
-        # else:
-        
-        c = (max_width+1) - subtree["position"]
-        r = (max_depth - subtree["depth"]) 
-
-        print(name, subtree)
-        print(name, c, r)
-
-        X.append(c) #column_level)
-        Y.append(r) #row_level) 
-        labels.append(name)
-
-        Xlink.extend([link_to_x, c, None])
-        Ylink.extend([link_to_y, r, None])
-        
-        if subtree["subtree"]:
-            #half_step = colum_step #/2
-            xx,yy, xl, yl, ll = parse_tree(
-                                            subtree,
-                                            max_depth=max_depth,
-                                            max_width=max_width,
-                                            #start_column= ,#column_level-half_step,
-                                            #end_column= ,#column_level+half_step,
-                                            #row=row-1,
-                                            link_to_x=c,
-                                            link_to_y=r
-                                            )
-            X.extend(xx)
-            Y.extend(yy)
-            Xlink.extend(xl)
-            Ylink.extend(yl)
-            labels.extend(ll)
-            
-
-        #column_level += colum_step
-
-    return X, Y, Xlink, Ylink, labels
 
 
 def make_annotations(name2pos):
@@ -311,7 +203,8 @@ def sort_data(data):
         sorted_data[k] = sorted_values[i]
     return sorted_data
 
-def create_tree_plot(fig, data:dict, color:str, group:str): # nodes:list, links:list, color:str):
+
+def create_tree_plot(fig, data:dict, color:str, group:str, reverse=True): # nodes:list, links:list, color:str):
 
     data["node_ids"] = create_ids(data["nodes"])
     data["linked_nodes"] = [data["node_ids"][i] for i in data["links"]]
@@ -320,16 +213,18 @@ def create_tree_plot(fig, data:dict, color:str, group:str): # nodes:list, links:
 
     node_ids = sorted_data.get("node_ids")
     linked_nodes = sorted_data.get("linked_nodes")
-    link_labels = sorted_data.get("link_labels")
+    link_labels = sorted_data.get("link_labels", [""] * len(node_ids))
     texts = sorted_data.get("texts")
 
-    node_tuples = list(zip(node_ids,linked_nodes))
-    plot_data = create_trees(node_tuples)
+
+    node_tuples = list(zip(node_ids,linked_nodes, link_labels))
+    plot_data = get_plot_data(node_tuples)
+
+    normalize_row_coordinates(plot_data)
+    set_link_coordinates(plot_data, nr_styles=len(set(link_labels)))
     
     X = plot_data["X"]
     Y = plot_data["Y"]
-    Xlink = plot_data["Xlink"]
-    Ylink = plot_data["Ylink"]
     labels = plot_data["labels"]
 
     max_depth = plot_data["max_depth"] + 1
@@ -339,6 +234,21 @@ def create_tree_plot(fig, data:dict, color:str, group:str): # nodes:list, links:
     for i,l in enumerate(labels):
         name2pos[l] = (X[i],Y[i])
     
+    for link_label, style in plot_data["link_styles"].items():
+        xkey = f"X{link_label}link"
+        ykey = f"Y{link_label}link"
+
+        fig.add_trace(go.Scatter(
+                                x=plot_data[xkey],
+                                y=plot_data[ykey],
+                                mode='lines',
+                                name=link_label,
+                                line=style,
+                                #text = ,
+                                hoverinfo="none",
+                                legendgroup=group,
+                                ))
+
     
     fig.add_trace(go.Scatter(
                             x=X,
@@ -358,20 +268,9 @@ def create_tree_plot(fig, data:dict, color:str, group:str): # nodes:list, links:
                             ))
 
     fig.update_layout(
-                    yaxis=dict(range=[0,max_depth]),
+                    yaxis=dict(range=[0,max_depth], autorange="reversed" if reverse else None),
                     xaxis=dict(range=[0,max_width])
                     )
-
-    fig.add_trace(go.Scatter(
-                            x=Xlink,
-                            y=Ylink,
-                            mode='lines',
-                            name="True",
-                            line=dict(color=color, width=1),
-                            hoverinfo='none',
-                            legendgroup=group,
-
-                            ))
 
     fig.update_layout(
                         annotations=make_annotations(name2pos),
@@ -382,7 +281,6 @@ def create_tree_plot(fig, data:dict, color:str, group:str): # nodes:list, links:
 
 def hot_tree(gold, pred=None):
 
-
     fig = go.Figure()
 
     #creating gold tree
@@ -391,7 +289,6 @@ def hot_tree(gold, pred=None):
                                 color="LightBlue",
                                 group="gold"
                                 )
-
 
     if pred:
         create_tree_plot(fig, 
