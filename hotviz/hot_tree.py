@@ -1,10 +1,8 @@
 
 
 #basics
-from pprint import pprint
 from copy import deepcopy
 import numpy as np
-import random
 
 #igraph
 import igraph
@@ -58,13 +56,13 @@ def set_link_coordinates(plot_data, labels:list, colors:list):
         plot_data["link_xy"][link_label]["Y"].extend([plot_data["Y"][idx_of_parent], plot_data["Y"][idx_of_child], None])
 
 
-def get_plot_data(items):
+def get_plot_data(data):
 
-    def place_node(tree_nodes, node, linked_node, link_label, plot_data):
+    def place_node(tree_nodes, node, plot_data):
 
 
-        if linked_node in tree_nodes:
-            parent_node = tree_nodes[linked_node]
+        if node["link"] in tree_nodes:
+            parent_node = tree_nodes[node["link"]]
             root = parent_node["root"]
 
             row = parent_node["row"] + 1
@@ -79,24 +77,24 @@ def get_plot_data(items):
             plot_data["X"].append(column)
             plot_data["Y"].append(row)
             plot_data["root"].append(root)
-            plot_data["links"].append((link_label, parent_node["idx"], idx))
-            plot_data["labels"].append(node)
+            plot_data["links"].append((node["link_label"], parent_node["idx"], idx))
+            plot_data["labels"].append(node["id"])
             plot_data["max_depth"] = max(plot_data["max_depth"], row)
-
-            parent_node["subnodes"][node] =  {
-                                                "row":row,        
-                                                "column":column,
-                                                "root":root,
-                                                "idx": idx,
-                                                "subnodes":{}
-                                                }
+            plot_data["texts"].append(format_text(node["text"]))
+            parent_node["subnodes"][node["id"]] =  {
+                                                    "row":row,        
+                                                    "column":column,
+                                                    "root":root,
+                                                    "idx": idx,
+                                                    "subnodes":{}
+                                                    }
             
             # we need to know the width of a tree so we can normalzie the coordinates later
             plot_data["tree_widths"][root] = max(plot_data["tree_widths"][root], len(parent_node["subnodes"]))
             return True
         else:
             for node_id, node_dict in tree_nodes.items():
-                if place_node(node_dict["subnodes"], node, linked_node, link_label, plot_data):
+                if place_node(node_dict["subnodes"], node, plot_data):
                     return True
                     
             return False
@@ -106,6 +104,7 @@ def get_plot_data(items):
                 "Y":[], 
                 "links": [],
                 "labels": [],
+                "texts": [],
                 "root":[], 
                 "max_depth":0, 
                 "tree_widths":{},
@@ -114,29 +113,29 @@ def get_plot_data(items):
                 }
     trees = {}
 
-    unplaced_nodes = items.copy()
+    unplaced_nodes = data.copy()
     while unplaced_nodes:
 
-        #node, linked_node = unplaced_nodes[0]
-        node, linked_node, link_label  = unplaced_nodes.pop(0)
+        node  = unplaced_nodes.pop(0)
 
         #if we have a node that points to itself its the root of a new tree
-        if node == linked_node:
+        if node["id"] == node["link"]:
             row = 1
             column = len(trees)+1
             idx = len(plot_data["X"])
-            trees[node] = {
+            trees[node["id"]] = {
                             "row":row,        
                             "column":column,
-                            "root":node,
+                            "root":node["id"],
                             "idx": idx,
                             "subnodes":{}
                             }
             plot_data["X"].append(column)
             plot_data["Y"].append(row)
-            plot_data["root"].append(node)
-            plot_data["labels"].append(node)
-            plot_data["tree_widths"][node] = 1
+            plot_data["root"].append(node["id"])
+            plot_data["labels"].append(node["id"])
+            plot_data["tree_widths"][node["id"]] = 1
+            plot_data["texts"].append(format_text(node["text"]))
 
             if row not in plot_data["level_widths"]:
                 plot_data["level_widths"][row] = 0
@@ -145,14 +144,12 @@ def get_plot_data(items):
 
             found = True
         else:
-            found = place_node(trees, node, linked_node, link_label, plot_data)
+            found = place_node(trees, node, plot_data)
     
-
         # if node found a place we remove it else we just add it
         # last to the unplaced_nodes list
-        #node_tuple = unplaced_nodes.pop(0)
-        if not found and (node, linked_node, link_label) not in unplaced_nodes:
-            unplaced_nodes.append((node, linked_node, link_label))
+        if not found and node not in unplaced_nodes:
+            unplaced_nodes.append(node)
 
     plot_data["max_width"] =  max(plot_data["level_widths"].values())
     return plot_data
@@ -174,47 +171,43 @@ def add_node_text(fig, plot_data):
                         )
 
 
-def create_ids(nodes):
+def create_ids(data):
     node_stack = {}
-    nodes_ids = []
-    for node in nodes:
-        
-        if node not in node_stack:
-            node_stack[node] = []
-        
-        node_id = f"{node}_{len(node_stack[node])}"
-        
-        node_stack[node].append(node)
-        nodes_ids.append(node_id)
+    for node in data:
+        label = node["label"]
 
-    return nodes_ids
-
-
-def sort_data(data):
-    data = deepcopy(data)
-    links = data.pop("links")
-    data_keys = list(data.keys())
-    sorted_values = list(zip(*sorted(zip(*data.values(),links), key=lambda x:x[-1])))
-    sorted_data = {}
-    for i, k in enumerate(data_keys):
-        sorted_data[k] = sorted_values[i]
-    return sorted_data
+        if label not in node_stack:
+            node_stack[label] = []
+        
+        node_id = f"{label}_{len(node_stack[label])}"
+        
+        node_stack[label].append(label)
+        node["id"] = node_id
 
 
 def add_lines(fig, plot_data):
     for label, link_data in plot_data["link_xy"].items():
+
+        if not label:
+            style = dict(color="black", width=2, dash='solid')
+            showlegend = False 
+        else:
+            style = link_data["style"]
+            showlegend = True
+
         fig.add_trace(go.Scatter(
                                 x=link_data["X"],
                                 y=link_data["Y"],
                                 mode='lines',
                                 name=label,
-                                line=link_data["style"],
+                                line=style,
                                 #text = ,
                                 hoverinfo="none",
+                                showlegend=showlegend
                                 ))
 
 
-def add_nodes(fig, plot_data, texts, colors:list):
+def add_nodes(fig, plot_data, colors:list):
     fig.add_trace(go.Scatter(
                             x=plot_data["X"],
                             y=plot_data["Y"],
@@ -226,7 +219,7 @@ def add_nodes(fig, plot_data, texts, colors:list):
                                             #opacity=0.0,
                                             ),
                             text=plot_data["labels"],
-                            hovertext=texts,
+                            hovertext=plot_data["texts"],
                             hoverinfo='text',
                             showlegend=False,
                             #opacity=0.8
@@ -239,68 +232,71 @@ def set_axes(fig, plot_data, reverse:bool):
                     xaxis=dict(range=[0,plot_data["max_width"]+1])
                     )
 
-def format_text(texts):
-    # simply divides a text into lines with max 10 words
-    new_texts = []
-    for text in texts:
-        tokens  = text.split(" ")
-        new_texts.append("<br>".join([" ".join(tokens[i:i+10]) for i in range(0,len(tokens),10)]))
-    return new_texts
+
+def format_text(text:str):
+    tokens = text.split(" ")
+    return "<br>".join([" ".join(tokens[i:i+10]) for i in range(0,len(tokens),10)])
+
+
+def reformat_links(data):
+    label2idx = {d["label"]:i for i,d in enumerate(data)}
+
+    for node in data:
+        link  = node["link"]
+        if isinstance(link, int):
+            node["link_int"] = link
+            node["link"] = data[link]["id"]
+        else:
+            node["link_int"] = label2idx[link]
 
 
 def create_tree_plot(fig, data:dict, colors:str, reverse:bool): # nodes:list, links:list, color:str):
 
-    #we turn labels into ids
-    data["node_ids"] = create_ids(data["nodes"])
+    data = deepcopy(data)
 
-    # change links to label ids by taking the label id of the idx == link
-    data["linked_nodes"] = [data["node_ids"][i] for i in data["links"]]
+    #we turn labels into ids
+    if "id" not in data[0]:
+        create_ids(data)
+
+    # change links to labels or add int to link_int so we can sort
+    reformat_links(data)
 
     # sort data to untangle trees
-    sorted_data = sort_data(data)
-
-    #unpack
-    node_ids = sorted_data.get("node_ids")
-    linked_nodes = sorted_data.get("linked_nodes")
-    link_labels = sorted_data.get("link_labels", [""] * len(node_ids))
-    texts = sorted_data.get("texts")
-    texts = format_text(texts)
-
-    # zip node labels, linked node labels and link_labels
-    node_tuples = list(zip(node_ids,linked_nodes, link_labels))
+    data = sorted(data, key=lambda x:x["link_int"])
 
     # parse the data to get plot data ( e.g. X Y coordinates, max depth, max width etc)
-    plot_data = get_plot_data(node_tuples)
+    plot_data = get_plot_data(data)
 
     #normalize coordinates to make tree abit nicer now as we know the depth and widths
     normalize_row_coordinates(plot_data)
 
     # when we have normalized X and Y corridnates we can set up all the links
-    set_link_coordinates(plot_data, labels=sorted(set(link_labels)), colors=colors)
+    link_labels = sorted(set([d["link_label"] for d in data]))
+    set_link_coordinates(plot_data, labels=link_labels, colors=colors)
     
     #create the plot
     add_lines(fig, plot_data)
-    add_nodes(fig, plot_data, texts, colors=colors)
+    add_nodes(fig, plot_data, colors=colors)
     add_node_text(fig, plot_data)
     set_axes(fig, plot_data, reverse=reverse)
 
 
-def hot_tree(gold, pred=None, colors="Plotly", reverse=True):
+def hot_tree(data, pred=None, colors="Plotly", reverse=True, title:str=""):
 
     fig = go.Figure()
 
     #get colors scale
     for scale in [px.colors.sequential, px.colors.qualitative, px.colors.cyclical]:
         if hasattr(scale, colors):
-            colors = getattr(scale ,colors)
+            colors = deepcopy(getattr(scale, colors))
             break
             
-    if type(colors) != list:
+    if not isinstance(colors,list):
         raise KeyError(f"{colors} is not a supported plotly colorscale. scales can be found here: https://plotly.com/python/builtin-colorscales/")
     
     #creating gold tree
     create_tree_plot(fig, 
-                    data=gold,
+                    data=data,
                     colors=colors,
                     reverse=reverse,
                     )
@@ -313,7 +309,7 @@ def hot_tree(gold, pred=None, colors="Plotly", reverse=True):
                         )
 
     fig.update_layout(
-                        title= 'Argument Tree',
+                        title=title,
                         #annotations=make_annotations(name2pos),
                         font_size=12,
                         showlegend=True,
