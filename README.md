@@ -1,5 +1,6 @@
-# hotviz
+# HotViz
 
+HotViz is a small visualization library.
 
 ## HotTree
 
