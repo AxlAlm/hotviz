@@ -259,7 +259,6 @@ def add_nodes(fig, plot_data, colors:list, opacity:float, legendgroup:str):
                             ))
 
 
-
 def format_text(text:str):
     tokens = text.split(" ")
     return "<br>".join([" ".join(tokens[i:i+10]) for i in range(0,len(tokens),10)])
@@ -308,7 +307,6 @@ def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0
     #add_node_text(fig, plot_data)
     
     return plot_data["max_depth"], plot_data["max_width"]
-
 
 
 def hot_tree(data, gold_data=None, colors="Plotly", reverse=True, title:str="", save_to:str=None):

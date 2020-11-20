@@ -28,15 +28,14 @@ def class_header(labels:list, style_elems:list):
     
 def hot_text(data, labels:list, save_path:str="/tmp/hot_text.png", print_html:bool=True, show_spans:bool=True, show_scores:bool=True, font:str="Verdana"):
     
-    # this needs to be improved..
     style_elems = [ 
                     "span { line-height: 54px;}",
                     ".gold {border-top: 3px solid gold; padding-top: 5px;}",
                     ".pred {border-bottom: 3px solid red; padding-bottom: 5px; }",
                     ".gold_pred {border-bottom: 3px solid red; padding-bottom: 5px; border-top: 3px solid gold; padding-top: 5px;}",
                     ".supsub {position: absolute}",
-                    ".subscript {display:block; position:relative; left:2px; top: 18px; font-size: 50%; font-weight:bolder; background: linear-gradient(to bottom, red 50%, transparent 50%);}",
-                    ".superscript {display:block; position:relative; left:2px; top:-20px; font-size: 50%; font-weight:bolder; background: linear-gradient(to bottom, red 50%, transparent 50%);}", #text-shadow: 2px 2px white, 2px -2px white,-2px 2px white,-2px -2px white;
+                    ".subscript {display:block; position:relative; left:2px; top: 18px; font-size: 50%; font-weight:bolder; }",
+                    ".superscript {display:block; position:relative; left:2px; top:-20px; font-size: 50%; font-weight:bolder;}", #text-shadow: 2px 2px white, 2px -2px white,-2px 2px white,-2px -2px white;
                     ]
 
     header = []
