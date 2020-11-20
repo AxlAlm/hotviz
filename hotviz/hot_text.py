@@ -26,17 +26,17 @@ def class_header(labels:list, style_elems:list):
     return header, label2cmap
 
     
-def hot_text(data, labels:list, save_path:str="/tmp/hot_text.png", return_html:bool=True, show_spans:bool=True, show_scores:bool=True, font:str="Verdana"):
+def hot_text(data, labels:list, save_path:str="/tmp/hot_text.png", print_html:bool=True, show_spans:bool=True, show_scores:bool=True, font:str="Verdana"):
     
     # this needs to be improved..
     style_elems = [ 
                     "span { line-height: 54px;}",
                     ".gold {border-top: 3px solid gold; padding-top: 5px;}",
-                    ".pred {border-bottom: 3px solid red; padding-bottom: 5px;}",
+                    ".pred {border-bottom: 3px solid red; padding-bottom: 5px; }",
                     ".gold_pred {border-bottom: 3px solid red; padding-bottom: 5px; border-top: 3px solid gold; padding-top: 5px;}",
                     ".supsub {position: absolute}",
-                    ".subscript {display:block; position:relative; left:2px; top: 18px; font-size: 50%; font-weight:bolder;}",
-                    ".superscript {display:block; position:relative; left:2px; top:-20px; font-size: 50%; font-weight:bolder;}",
+                    ".subscript {display:block; position:relative; left:2px; top: 18px; font-size: 50%; font-weight:bolder; background: linear-gradient(to bottom, red 50%, transparent 50%);}",
+                    ".superscript {display:block; position:relative; left:2px; top:-20px; font-size: 50%; font-weight:bolder; background: linear-gradient(to bottom, red 50%, transparent 50%);}", #text-shadow: 2px 2px white, 2px -2px white,-2px 2px white,-2px -2px white;
                     ]
 
     header = []
@@ -63,6 +63,10 @@ def hot_text(data, labels:list, save_path:str="/tmp/hot_text.png", return_html:b
                     hex_code = colors.to_hex(cmap(pred["score"]))
                     style_elems.append(f'.c{i} {{ background-color: {hex_code}; }}')
                     token = f'<span class="c{i}">{token} </span>'
+
+            if ">" not in token:
+                token += " "
+
 
         
         if show_spans:
@@ -127,6 +131,6 @@ def hot_text(data, labels:list, save_path:str="/tmp/hot_text.png", return_html:b
     imgkit.from_string(html_string, save_path, options={'quiet':'', "width": 800, "height":600})
 
 
-    if return_html:
+    if print_html:
         document_root = html.fromstring(html_string)
-        return etree.tostring(document_root, encoding='unicode', pretty_print=True)
+        print(etree.tostring(document_root, encoding='unicode', pretty_print=True))

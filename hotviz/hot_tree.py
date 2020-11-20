@@ -18,8 +18,14 @@ def normalize_row_coordinates(plot_data):
     X = np.array(plot_data["X"], dtype=float)
 
     # where level is == 1, this is the level of all trees
+    # first part only alines the trees so they are equally distributed over the max width
     tree_level_mask = Y==1
-    new_xs = X[tree_level_mask] * ( plot_data["max_width"] /  len(plot_data["tree_widths"]))
+    
+    nr_trees = len(plot_data["tree_widths"])
+    if nr_trees == 1:
+        nr_trees += 1
+
+    new_xs = X[tree_level_mask] * ( plot_data["max_width"] /   nr_trees)
     X[tree_level_mask] = new_xs
     plot_data["X"] = X.tolist()
 
@@ -28,8 +34,6 @@ def normalize_row_coordinates(plot_data):
     #
     # possible solutions:
     # shift each level for each tree according to :
-    #
-    #
 
     # for tree in trees:
     #     for i in range(2,plot_data["max_depth"]+1):
@@ -185,7 +189,32 @@ def create_ids(data):
         node["id"] = node_id
 
 
-def add_lines(fig, plot_data, opacity:float):
+def replacement_legend(fig, legendgroup:str):
+    fig.add_trace(go.Scatter(
+                            x=[0],
+                            y=[0],
+                            visible=True,
+                            mode="markers",
+                            marker=dict(symbol='square',
+                                        size=50,
+                                        color="white"
+                                        ),
+                            name=legendgroup,
+                            showlegend=True,
+                            legendgroup=legendgroup,
+                            ))
+    fig.update_layout(
+                        legend= dict(
+                                    font=dict(
+                                                family="Courier",
+                                                size=15,
+                                                color="black"
+                                             )
+                                    )
+                        )
+    
+
+def add_lines(fig, plot_data, opacity:float, legendgroup:str):
     for label, link_data in plot_data["link_xy"].items():
 
         if not label:
@@ -201,19 +230,19 @@ def add_lines(fig, plot_data, opacity:float):
                                 mode='lines',
                                 name=label,
                                 line=style,
-                                #text = ,
                                 hoverinfo="none",
-                                showlegend=showlegend,
+                                showlegend=True if legendgroup is None else False,
+                                legendgroup=legendgroup,
                                 opacity=opacity,
                                 ))
 
 
-def add_nodes(fig, plot_data, colors:list, opacity:float):
+def add_nodes(fig, plot_data, colors:list, opacity:float, legendgroup:str):
     fig.add_trace(go.Scatter(
                             x=plot_data["X"],
                             y=plot_data["Y"],
-                            mode='markers',
-                            name='bla',
+                            mode='markers+text',
+                            name=legendgroup,
                             marker=dict(symbol='diamond-wide',
                                             size=50,
                                             color=colors.pop(0),
@@ -223,15 +252,12 @@ def add_nodes(fig, plot_data, colors:list, opacity:float):
                             hovertext=plot_data["texts"],
                             hoverinfo='text',
                             showlegend=False,
-                            opacity=opacity
+                            legendgroup=legendgroup,
+                            opacity=opacity,
+                            textposition='middle center'
+                            
                             ))
 
-
-def set_axes(fig, plot_data, reverse:bool):
-    fig.update_layout(
-                    yaxis=dict(range=[0,plot_data["max_depth"]+1], autorange="reversed" if reverse else None),
-                    xaxis=dict(range=[0,plot_data["max_width"]+1])
-                    )
 
 
 def format_text(text:str):
@@ -251,7 +277,7 @@ def reformat_links(data):
             node["link_int"] = label2idx[link]
 
 
-def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0): # nodes:list, links:list, color:str):
+def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0, legendgroup:str=None): # nodes:list, links:list, color:str):
 
     data = deepcopy(data)
     colors = deepcopy(colors)
@@ -277,13 +303,15 @@ def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0
     set_link_coordinates(plot_data, labels=link_labels, colors=colors)
     
     #create the plot
-    add_lines(fig, plot_data, opacity=opacity)
-    add_nodes(fig, plot_data, colors=colors, opacity=opacity)
-    add_node_text(fig, plot_data)
-    set_axes(fig, plot_data, reverse=reverse)
+    add_lines(fig, plot_data, opacity=opacity, legendgroup=legendgroup)
+    add_nodes(fig, plot_data, colors=colors, opacity=opacity, legendgroup=legendgroup)
+    #add_node_text(fig, plot_data)
+    
+    return plot_data["max_depth"], plot_data["max_width"]
 
 
-def hot_tree(data, gold_data=None, colors="Plotly", reverse=True, title:str=""):
+
+def hot_tree(data, gold_data=None, colors="Plotly", reverse=True, title:str="", save_to:str=None):
 
     fig = go.Figure()
 
@@ -298,21 +326,45 @@ def hot_tree(data, gold_data=None, colors="Plotly", reverse=True, title:str=""):
     
     # gold data is added , we can create a tree with high opacity that just sits static in the background
     if gold_data:
-        create_tree_plot(fig, 
-                        data=gold_data,
-                        colors=colors,
-                        reverse=reverse,
-                        opacity=0.2,
-                        )
+        replacement_legend(fig, "gold")
+        gold_max_depth, gold_max_width = create_tree_plot(  
+                                                            fig, 
+                                                            data=gold_data,
+                                                            colors=colors,
+                                                            reverse=reverse,
+                                                            opacity=0.3,
+                                                            legendgroup="gold"
+                                                            )
 
+    legendgroup = None
+    if gold_data:
+        replacement_legend(fig, "pred")
+        legendgroup = "pred"
+    
+    max_depth, max_width = create_tree_plot(  
+                                            fig, 
+                                            data=data,
+                                            colors=colors,
+                                            reverse=reverse,
+                                            legendgroup=legendgroup
+                                            )  
 
-    #creating gold tree
-    create_tree_plot(fig, 
-                    data=data,
-                    colors=colors,
-                    reverse=reverse,
+    if gold_data:
+        max_depth = max(gold_max_depth, max_depth) 
+        max_width = max(gold_max_width, max_width)
+
+    fig.update_layout(
+                    yaxis=dict(range=[0,max_depth+1], autorange="reversed" if reverse else None),
+                    xaxis=dict(range=[0,max_width+1])
                     )
+    
 
+    axis = dict(
+                showline=False, # hide axis line, grid, ticklabels and  title
+                zeroline=False,
+                showgrid=False,
+                showticklabels=False,
+            )
 
     fig.update_layout(
                         title=title,
@@ -321,14 +373,12 @@ def hot_tree(data, gold_data=None, colors="Plotly", reverse=True, title:str=""):
                         showlegend=True,
                         margin=dict(l=40, r=40, b=85, t=100),
                         hovermode='closest',
-                        plot_bgcolor='rgb(248,248,248)'
+                        plot_bgcolor="white", #'rgb(248,248,248)',
+                        xaxis=axis,
+                        yaxis=axis
                         )
-
-    axis = dict(
-                showline=False, # hide axis line, grid, ticklabels and  title
-                zeroline=False,
-                showgrid=False,
-                showticklabels=False,
-            )
+    
+    if save_to:
+        fig.write_image(save_to)
 
     return fig
