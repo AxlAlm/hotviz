@@ -185,7 +185,7 @@ def create_ids(data):
         node["id"] = node_id
 
 
-def add_lines(fig, plot_data):
+def add_lines(fig, plot_data, opacity:float):
     for label, link_data in plot_data["link_xy"].items():
 
         if not label:
@@ -203,11 +203,12 @@ def add_lines(fig, plot_data):
                                 line=style,
                                 #text = ,
                                 hoverinfo="none",
-                                showlegend=showlegend
+                                showlegend=showlegend,
+                                opacity=opacity,
                                 ))
 
 
-def add_nodes(fig, plot_data, colors:list):
+def add_nodes(fig, plot_data, colors:list, opacity:float):
     fig.add_trace(go.Scatter(
                             x=plot_data["X"],
                             y=plot_data["Y"],
@@ -216,13 +217,13 @@ def add_nodes(fig, plot_data, colors:list):
                             marker=dict(symbol='diamond-wide',
                                             size=50,
                                             color=colors.pop(0),
-                                            #opacity=0.0,
+                                            #opacity=colors,
                                             ),
                             text=plot_data["labels"],
                             hovertext=plot_data["texts"],
                             hoverinfo='text',
                             showlegend=False,
-                            #opacity=0.8
+                            opacity=opacity
                             ))
 
 
@@ -250,9 +251,10 @@ def reformat_links(data):
             node["link_int"] = label2idx[link]
 
 
-def create_tree_plot(fig, data:dict, colors:str, reverse:bool): # nodes:list, links:list, color:str):
+def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0): # nodes:list, links:list, color:str):
 
     data = deepcopy(data)
+    colors = deepcopy(colors)
 
     #we turn labels into ids
     if "id" not in data[0]:
@@ -275,25 +277,35 @@ def create_tree_plot(fig, data:dict, colors:str, reverse:bool): # nodes:list, li
     set_link_coordinates(plot_data, labels=link_labels, colors=colors)
     
     #create the plot
-    add_lines(fig, plot_data)
-    add_nodes(fig, plot_data, colors=colors)
+    add_lines(fig, plot_data, opacity=opacity)
+    add_nodes(fig, plot_data, colors=colors, opacity=opacity)
     add_node_text(fig, plot_data)
     set_axes(fig, plot_data, reverse=reverse)
 
 
-def hot_tree(data, pred=None, colors="Plotly", reverse=True, title:str=""):
+def hot_tree(data, gold_data=None, colors="Plotly", reverse=True, title:str=""):
 
     fig = go.Figure()
 
     #get colors scale
     for scale in [px.colors.sequential, px.colors.qualitative, px.colors.cyclical]:
         if hasattr(scale, colors):
-            colors = deepcopy(getattr(scale, colors))
+            colors = getattr(scale, colors) 
             break
             
     if not isinstance(colors,list):
         raise KeyError(f"{colors} is not a supported plotly colorscale. scales can be found here: https://plotly.com/python/builtin-colorscales/")
     
+    # gold data is added , we can create a tree with high opacity that just sits static in the background
+    if gold_data:
+        create_tree_plot(fig, 
+                        data=gold_data,
+                        colors=colors,
+                        reverse=reverse,
+                        opacity=0.2,
+                        )
+
+
     #creating gold tree
     create_tree_plot(fig, 
                     data=data,
@@ -301,12 +313,6 @@ def hot_tree(data, pred=None, colors="Plotly", reverse=True, title:str=""):
                     reverse=reverse,
                     )
 
-    if pred:
-        create_tree_plot(fig, 
-                        nodes=pred["nodes"], 
-                        links=pred["links"], 
-                        color="green"
-                        )
 
     fig.update_layout(
                         title=title,
