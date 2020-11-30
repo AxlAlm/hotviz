@@ -2,6 +2,11 @@
 
 HotViz is a small visualization library.
 
+## install
+```
+pip install hotviz==0.0.1
+```
+
 ## HotTree
 
 A tree-plot is a plotly figure for visualizing tree structures. Example below visualizes the structure within an argument from a student essay. 
