@@ -6,7 +6,6 @@ import json
 import imgkit
 import base64
 from lxml import etree, html
-#from bs4 import BeautifulSoup as bs
 from IPython.display import Image
 
 
