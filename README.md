@@ -53,6 +53,7 @@ hmtl = hot_text(
 ![](https://github.com/AxlAlm/hotviz/blob/setup/hotviz/example/hot_text_example.png)
 
 TODO: 
+- add info legend to hot_text so one knows which span color is gold and predicted
 - changing color of hot_text
 - changing possition of span label text of hot_text
 - adding breaks in spans for hot_text
