@@ -12,6 +12,7 @@ from hotviz.example import tree_data
 
 hot_tree(tree_data, title="Argument X")
 ```
+![](https://github.com/AxlAlm/hotviz/blob/setup/hotviz/example/example_tree_hover.png)
 
 HotTree also supports visulization of Gold vs Predicted data; Gold data will be opaque in the background and Prediction data in the forground.
 
