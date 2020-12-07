@@ -1,6 +1,6 @@
 
 # package info
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 __author__ = 'Axel Almquist'
 __author_email__ = 'axel@almquist.io'
 __license__ = 'MIT'
