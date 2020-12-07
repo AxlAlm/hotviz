@@ -1,6 +1,4 @@
-from setuptools import setup
 from hotviz import __version__, __author__, __author_email__, __license__
-
 from setuptools import find_packages, setup
 
 try:
@@ -20,7 +18,7 @@ setup(
     author=__author__,
     author_email=__author_email__,
     license=__license__,
-    packages=setuptools.find_packages(),
+    packages=find_packages(),
     install_requires=[
                         'numpy==1.18.1',
                         'plotly==4.9.0',
