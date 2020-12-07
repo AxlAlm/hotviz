@@ -1,6 +1,17 @@
 from setuptools import setup
 from hotviz import __version__, __author__, __author_email__, __license__
 
+from setuptools import find_packages, setup
+
+try:
+    import builtins
+except ImportError:
+    import __builtin__ as builtins
+
+#PATH_ROOT = os.path.dirname(__file__)
+builtins.__HOTVIZ_SETUP__ = True
+
+
 setup(
     name='hotviz',
     version=__version__,    
@@ -9,7 +20,7 @@ setup(
     author=__author__,
     author_email=__author_email__,
     license=__license__,
-    packages=['hotviz'],
+    packages=setuptools.find_packages(),
     install_requires=[
                         'numpy==1.18.1',
                         'plotly==4.9.0',
