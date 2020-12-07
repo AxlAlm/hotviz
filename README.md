@@ -4,7 +4,7 @@ HotViz is a small visualization library.
 
 ## install
 ```
-pip install hotviz==0.0.1
+pip install hotviz
 ```
 
 ## HotTree
