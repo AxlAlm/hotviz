@@ -1,23 +1,26 @@
-from hotviz import __version__, __author__, __author_email__, __license__
 from setuptools import find_packages, setup
+import json
+import pathlib
+import os
 
-try:
-    import builtins
-except ImportError:
-    import __builtin__ as builtins
 
-#PATH_ROOT = os.path.dirname(__file__)
-builtins.__HOTVIZ_SETUP__ = True
+def get_meta():
+    meta_file = os.path.join(pathlib.Path(__file__).parent.absolute(), "meta.json")
+    with open(meta_file, "r") as f:
+        meta = json.load(f)
+    return meta
+
+meta = get_meta()
 
 
 setup(
     name='hotviz',
-    version=__version__,    
+    version=meta["__version__"],    
     description='A visulizations lib for python',
     url='https://github.com/AxlAlm/hotviz',
-    author=__author__,
-    author_email=__author_email__,
-    license=__license__,
+    author=meta["__author__"],
+    author_email=meta["__author_email__"],
+    license=meta["__license__"],
     packages=find_packages(),
     install_requires=[
                         'numpy==1.18.1',
