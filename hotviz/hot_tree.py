@@ -63,8 +63,6 @@ def set_link_coordinates(plot_data, labels:list, colors:list):
 def get_plot_data(data):
 
     def place_node(tree_nodes, node, plot_data):
-
-
         if node["link"] in tree_nodes:
             parent_node = tree_nodes[node["link"]]
             root = parent_node["root"]
@@ -117,7 +115,8 @@ def get_plot_data(data):
                 }
     trees = {}
 
-    unplaced_nodes = data.copy()
+    # addin "seen" (and copy)
+    unplaced_nodes = [{**node,**{"seen":0}} for node in data.copy()]
     while unplaced_nodes:
 
         node  = unplaced_nodes.pop(0)
@@ -153,7 +152,33 @@ def get_plot_data(data):
         # if node found a place we remove it else we just add it
         # last to the unplaced_nodes list
         if not found and node not in unplaced_nodes:
-            unplaced_nodes.append(node)
+
+            if node["seen"] >= 2:
+                row = 1
+                column = len(trees)+1
+                idx = len(plot_data["X"])
+                trees[node["id"]] = {
+                                "row":row,        
+                                "column":column,
+                                "root":node["id"],
+                                "idx": idx,
+                                "subnodes":{}
+                                }      
+                plot_data["X"].append(column)
+                plot_data["Y"].append(row)
+                plot_data["root"].append(node["id"])
+                plot_data["labels"].append(node["id"])
+                plot_data["tree_widths"][node["id"]] = 1
+                plot_data["texts"].append(format_text(node["text"]))
+
+                if row not in plot_data["level_widths"]:
+                    plot_data["level_widths"][row] = 0
+            
+                plot_data["level_widths"][row] += 1
+
+            else:
+                node["seen"] += 1
+                unplaced_nodes.append(node)
 
     plot_data["max_width"] =  max(plot_data["level_widths"].values())
     return plot_data
@@ -269,6 +294,7 @@ def reformat_links(data):
 
     for node in data:
         link  = node["link"]
+
         if isinstance(link, int):
             node["link_int"] = link
             node["link"] = data[link]["id"]
