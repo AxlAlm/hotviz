@@ -124,7 +124,7 @@ def get_legend(gold_label2span:dict, pred_label2span:dict, gold_span2cmap:dict, 
             """
     if show_scores:
         certainty_span = [f'<span style="background-color:{get_color_hex("Greys",i)}; color:{get_color_hex("Greys",i)};">ok</span>' for i in np.linspace(0.0, 1.0, num = 10)]
-        legend += ''.join(certainty_span)
+        legend += "<span>Certainty: </span>" + ''.join(certainty_span)
 
     return legend
 

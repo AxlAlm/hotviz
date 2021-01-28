@@ -266,7 +266,7 @@ def add_lines(fig, plot_data, opacity:float, legendgroup:str):
                                 ))
 
 
-def add_nodes(fig, plot_data, colors:list, opacity:float, legendgroup:str):
+def add_nodes(fig, plot_data, colors:list, opacity:float, legendgroup:str, node_size:int):
     fig.add_trace(go.Scatter(
                             x=plot_data["X"],
                             y=plot_data["Y"],
@@ -275,7 +275,7 @@ def add_nodes(fig, plot_data, colors:list, opacity:float, legendgroup:str):
                             marker=dict(    
                                             #symbol='diamond-wide',
                                             symbol='circle',
-                                            size=90,
+                                            size=node_size,
                                             color=colors.pop(0),
                                             #opacity=colors,
                                             ),
@@ -308,7 +308,7 @@ def reformat_links(data):
             node["link_int"] = label2idx[link]
 
 
-def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0, legendgroup:str=None): # nodes:list, links:list, color:str):
+def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0, legendgroup:str=None, node_size:int=90): # nodes:list, links:list, color:str):
 
     data = deepcopy(data)
     colors = deepcopy(colors)
@@ -335,13 +335,13 @@ def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0
     
     #create the plot
     add_lines(fig, plot_data, opacity=opacity, legendgroup=legendgroup)
-    add_nodes(fig, plot_data, colors=colors, opacity=opacity, legendgroup=legendgroup)
+    add_nodes(fig, plot_data, colors=colors, opacity=opacity, legendgroup=legendgroup, node_size=node_size)
     #add_node_text(fig, plot_data)
     
     return plot_data["max_depth"], plot_data["max_width"]
 
 
-def hot_tree(data, gold_data=None, reverse=True, title:str="", save_to:str=None):
+def hot_tree(data, gold_data=None, reverse=True, title:str="", save_to:str=None, node_size=90):
 
     fig = go.Figure()
 
@@ -366,7 +366,8 @@ def hot_tree(data, gold_data=None, reverse=True, title:str="", save_to:str=None)
                                                             colors=colors,
                                                             reverse=reverse,
                                                             opacity=0.3,
-                                                            legendgroup="gold"
+                                                            legendgroup="gold",
+                                                            node_size=node_size
                                                             )
 
     legendgroup = None
@@ -379,7 +380,8 @@ def hot_tree(data, gold_data=None, reverse=True, title:str="", save_to:str=None)
                                             data=data,
                                             colors=colors,
                                             reverse=reverse,
-                                            legendgroup=legendgroup
+                                            legendgroup=legendgroup,
+                                            node_size=node_size
                                             )  
 
     if gold_data:
