@@ -184,7 +184,6 @@ def get_plot_data(data):
                 node["seen"] += 1
                 unplaced_nodes.append(node)
 
-    print(plot_data["level_widths"])
     plot_data["max_width"] =  max(plot_data["level_widths"].values())
     return plot_data
 
