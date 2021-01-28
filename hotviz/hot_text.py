@@ -98,6 +98,7 @@ def get_span2cmap(spans:list, span2label:dict):
 
     return span2cmap
 
+
 def get_legend(gold_label2span:dict, pred_label2span:dict, gold_span2cmap:dict, pred_span2cmap:dict, show_spans:bool, show_scores:bool):
 
     def get_color_blocks(label2span:dict, span2cmap:dict):
@@ -108,18 +109,23 @@ def get_legend(gold_label2span:dict, pred_label2span:dict, gold_span2cmap:dict, 
             label_block = []
             for i in span_ids:
                 hex_code = get_color_hex(span2cmap[i], 1.0)
-                #label_block.append(f'<span style="background-color:{hex_code}; color:{hex_code};">ok </span>')
-                label_block.append(f'<span style="background-color:{hex_code}; color:white;">{span2cmap[i]}    </span>')
+                label_block.append(f'<span style="background-color:{hex_code}; color:{hex_code};">ok</span>')
+                #label_block.append(f'<span style="background-color:{hex_code}; color:white;">{span2cmap[i]}    </span>')
 
             color_block = f'<span>| {label}</span>: {"".join(label_block)}'
             color_blocks.append(color_block)
 
         return color_blocks
 
+
     legend = f"""
-            <p>Gold <span style="border-top: 4px solid black;"> solid </span>{''.join(get_color_blocks(gold_label2span, gold_span2cmap))}</p>
-            <p>Preds <span style="border-bottom: 4px dashed black;"> dashed </span>{''.join(get_color_blocks(pred_label2span, pred_span2cmap))}</p>
+            <span>Gold <span style="border-top: 4px solid black;"> solid </span>{''.join(get_color_blocks(gold_label2span, gold_span2cmap))}</span><br>
+            <span>Pred <span style="border-bottom: 4px dashed black;"> dashed </span>{''.join(get_color_blocks(pred_label2span, pred_span2cmap))}</span><br>
             """
+    if show_scores:
+        certainty_span = [f'<span style="background-color:{get_color_hex("Greys",i)}; color:{get_color_hex("Greys",i)};">ok</span>' for i in np.linspace(0.0, 1.0, num = 10)]
+        legend += ''.join(certainty_span)
+
     return legend
 
 
@@ -163,9 +169,7 @@ def hot_text(data, labels:list, save_path:str="/tmp/hot_text.png", print_html:bo
     gold_spans, gold_label2span, gold_span2label = get_mappings(data, key="gold")
     pred_spans, pred_label2span, pred_span2label = get_mappings(data, key="pred")
 
-    print("GOLD")
     gold_span2cmap = get_span2cmap(gold_spans, gold_span2label)
-    print("PRED")
     pred_span2cmap = get_span2cmap(pred_spans, pred_span2label)
 
     legend = get_legend(
