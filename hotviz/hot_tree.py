@@ -32,29 +32,22 @@ def normalize_row_coordinates(plot_data):
     # first part only alines the trees so they are equally distributed over the max width
     tree_level_mask = Y==1
     
+    max_width = plot_data["max_width"]
+    max_depth = plot_data["max_depth"]
     nr_trees = len(plot_data["tree_widths"])
     if nr_trees == 1:
         nr_trees += 1
 
-    new_xs = X[tree_level_mask] * ( plot_data["max_width"] /   nr_trees)
+    new_xs = X[tree_level_mask] * ( max_width /   nr_trees)
     X[tree_level_mask] = new_xs
     plot_data["X"] = X.tolist()
 
-    ## TODO:
-    # we need to shift the subtrees of the main tree to make them look a bit nicer
-    #
-    # possible solutions:
-    # shift each level for each tree according to :
-
-    # for tree in trees:
-    #     for i in range(2,plot_data["max_depth"]+1):
-    #         level_mask = Y == i
-    #         tree_maks = root == tree
-    #         mask  = level_mask + level_mask
-    #         new_xs = X[mask]
-    #         new_xs = new_xs * ( plot_data["max_width"]  ( plot_data["tree_widths"][tree] / len(new_xs) )
-    #         X[level_mask] = new_xs
-    #         plot_data["X"] = X.tolist()
+    for level in range(2, max_depth):
+        level_width = plot_data["level_widths"][level]
+        tree_level_mask = Y == level
+        new_xs = X[tree_level_mask] * ( max_width /   level_width)
+        X[tree_level_mask] = new_xs
+        plot_data["X"] = X.tolist()
 
 
 def set_link_coordinates(plot_data, labels:list, colors:list):
@@ -191,6 +184,7 @@ def get_plot_data(data):
                 node["seen"] += 1
                 unplaced_nodes.append(node)
 
+    print(plot_data["level_widths"])
     plot_data["max_width"] =  max(plot_data["level_widths"].values())
     return plot_data
 
