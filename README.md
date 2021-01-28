@@ -17,16 +17,9 @@ from hotviz.example import tree_data
 
 hot_tree(tree_data, title="Argument X")
 ```
-![](https://github.com/AxlAlm/hotviz/blob/setup/hotviz/example/example_tree_hover.png)
+![](https://github.com/AxlAlm/hotviz/blob/main/hotviz/example/example_tree_plot.png)
 
 HotTree also supports visulization of Gold vs Predicted data; Gold data will be opaque in the background and Prediction data in the forground.
-
-```python
-hot_tree(your_pred_data, gold_data=your_gold_data)
-```
-
-![](https://github.com/AxlAlm/hotviz/blob/setup/hotviz/example/tree_example.gif)
-
 
 
 ## HotText
@@ -50,7 +43,7 @@ hmtl = hot_text(
                 )
 ```
 
-![](https://github.com/AxlAlm/hotviz/blob/setup/hotviz/example/hot_text_example.png)
+![](https://github.com/AxlAlm/hotviz/blob/main/hotviz/example/example_span.png)
 
 TODO: 
 - add info legend to hot_text so one knows which span color is gold and predicted
