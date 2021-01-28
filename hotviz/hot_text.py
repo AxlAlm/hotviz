@@ -269,7 +269,7 @@ def hot_text(data, labels:list, save_path:str="/tmp/hot_text.png", print_html:bo
                             </html>
                     """
 
-    imgkit.from_string(html_string, save_path, options={'quiet':'', "width": 1400, "height":800})
+    imgkit.from_string(html_string, save_path, options={'quiet':'', "width": width, "height":height})
 
 
     if print_html:
