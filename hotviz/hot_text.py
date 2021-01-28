@@ -156,7 +156,7 @@ def get_mappings(data:list, key:str):
     return spans, label2span, span2label
     
 
-def hot_text(data, labels:list, save_path:str="/tmp/hot_text.png", print_html:bool=False, show_spans:bool=True, show_scores:bool=True, font:str="Verdana"):
+def hot_text(data, labels:list, save_path:str="/tmp/hot_text.png", print_html:bool=False, show_spans:bool=True, show_scores:bool=True, font:str="Verdana", width:int=1000, height:int=800):
     
     style_elems = [ 
                     "span { line-height: 30px; font-size:small;}",
