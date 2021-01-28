@@ -3,6 +3,7 @@
 #basics
 from copy import deepcopy
 import numpy as np
+import random
 
 #igraph
 import igraph
@@ -11,6 +12,16 @@ from igraph import Graph, EdgeSeq
 #plotly
 import plotly.express as px
 import plotly.graph_objects as go
+
+import matplotlib.cm as cm
+import matplotlib.colors as colors
+import matplotlib as mpl
+
+def get_color_hex(cmap_name:str, value=1.0):
+    norm = mpl.colors.Normalize(vmin=0.0,vmax=2)
+    cmap = cm.get_cmap(cmap_name)
+    hex_code = colors.to_hex(cmap(norm(value)))
+    return hex_code
 
 
 def normalize_row_coordinates(plot_data):
@@ -268,8 +279,10 @@ def add_nodes(fig, plot_data, colors:list, opacity:float, legendgroup:str):
                             y=plot_data["Y"],
                             mode='markers+text',
                             name=legendgroup,
-                            marker=dict(symbol='diamond-wide',
-                                            size=50,
+                            marker=dict(    
+                                            #symbol='diamond-wide',
+                                            symbol='circle',
+                                            size=90,
                                             color=colors.pop(0),
                                             #opacity=colors,
                                             ),
@@ -335,19 +348,22 @@ def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0
     return plot_data["max_depth"], plot_data["max_width"]
 
 
-def hot_tree(data, gold_data=None, colors="Plotly", reverse=True, title:str="", save_to:str=None):
+def hot_tree(data, gold_data=None, reverse=True, title:str="", save_to:str=None):
 
     fig = go.Figure()
 
-    #get colors scale
-    for scale in [px.colors.sequential, px.colors.qualitative, px.colors.cyclical]:
-        if hasattr(scale, colors):
-            colors = getattr(scale, colors) 
-            break
-            
-    if not isinstance(colors,list):
-        raise KeyError(f"{colors} is not a supported plotly colorscale. scales can be found here: https://plotly.com/python/builtin-colorscales/")
-    
+    # node_colors = ['Purples', 'Blues','BuPu','GnBu']
+    # link_colors = [ 'Greens', 'Reds', 'Oranges', 'RdPu','OrRd']
+    color_ranges =  [
+                     'YlGnBu', 'PuBuGn', 'YlGn', 'BuGn', 'YlGn', 
+                     'YlOrBr', 'YlOrRd','Blues', 'OrRd', 'PuRd','BuPu','Purples', 'RdPu',
+                     'GnBu', 'PuBu', 'Oranges', 'YlGnBu', 'BuGn', 'YlGn', 'Reds','Greens', 
+                     ]
+    # node_colors = [ get_color_hex(c,1.0) for c in node_colors]
+    # link_colors = [ get_color_hex(c,1.0) for c in link_colors]
+    colors = [ get_color_hex(c,0.8) for c in color_ranges]
+    #random.shuffle(colors)
+
     # gold data is added , we can create a tree with high opacity that just sits static in the background
     if gold_data:
         replacement_legend(fig, "gold")

@@ -2,12 +2,12 @@
 import numpy as np
 import matplotlib.cm as cm
 import matplotlib.colors as colors
+import matplotlib as mpl
 import json
 import imgkit
 import base64
 from lxml import etree, html
 from IPython.display import Image
-import matplotlib as mpl
 
 
 def get_color_hex(cmap_name:str, value=1.0):
