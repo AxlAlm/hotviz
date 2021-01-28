@@ -3,6 +3,7 @@
 #basics
 from copy import deepcopy
 import numpy as np
+import random
 
 #igraph
 import igraph
@@ -11,6 +12,16 @@ from igraph import Graph, EdgeSeq
 #plotly
 import plotly.express as px
 import plotly.graph_objects as go
+
+import matplotlib.cm as cm
+import matplotlib.colors as colors
+import matplotlib as mpl
+
+def get_color_hex(cmap_name:str, value=1.0):
+    norm = mpl.colors.Normalize(vmin=0.0,vmax=2)
+    cmap = cm.get_cmap(cmap_name)
+    hex_code = colors.to_hex(cmap(norm(value)))
+    return hex_code
 
 
 def normalize_row_coordinates(plot_data):
@@ -21,29 +32,22 @@ def normalize_row_coordinates(plot_data):
     # first part only alines the trees so they are equally distributed over the max width
     tree_level_mask = Y==1
     
+    max_width = plot_data["max_width"]
+    max_depth = plot_data["max_depth"]
     nr_trees = len(plot_data["tree_widths"])
     if nr_trees == 1:
         nr_trees += 1
 
-    new_xs = X[tree_level_mask] * ( plot_data["max_width"] /   nr_trees)
+    new_xs = X[tree_level_mask] * ( max_width /   nr_trees)
     X[tree_level_mask] = new_xs
     plot_data["X"] = X.tolist()
 
-    ## TODO:
-    # we need to shift the subtrees of the main tree to make them look a bit nicer
-    #
-    # possible solutions:
-    # shift each level for each tree according to :
-
-    # for tree in trees:
-    #     for i in range(2,plot_data["max_depth"]+1):
-    #         level_mask = Y == i
-    #         tree_maks = root == tree
-    #         mask  = level_mask + level_mask
-    #         new_xs = X[mask]
-    #         new_xs = new_xs * ( plot_data["max_width"]  ( plot_data["tree_widths"][tree] / len(new_xs) )
-    #         X[level_mask] = new_xs
-    #         plot_data["X"] = X.tolist()
+    for level in range(2, max_depth):
+        level_width = plot_data["level_widths"][level]
+        tree_level_mask = Y == level
+        new_xs = X[tree_level_mask] * ( max_width /   level_width)
+        X[tree_level_mask] = new_xs
+        plot_data["X"] = X.tolist()
 
 
 def set_link_coordinates(plot_data, labels:list, colors:list):
@@ -63,8 +67,6 @@ def set_link_coordinates(plot_data, labels:list, colors:list):
 def get_plot_data(data):
 
     def place_node(tree_nodes, node, plot_data):
-
-
         if node["link"] in tree_nodes:
             parent_node = tree_nodes[node["link"]]
             root = parent_node["root"]
@@ -117,7 +119,8 @@ def get_plot_data(data):
                 }
     trees = {}
 
-    unplaced_nodes = data.copy()
+    # addin "seen" (and copy)
+    unplaced_nodes = [{**node,**{"seen":0}} for node in data.copy()]
     while unplaced_nodes:
 
         node  = unplaced_nodes.pop(0)
@@ -153,7 +156,33 @@ def get_plot_data(data):
         # if node found a place we remove it else we just add it
         # last to the unplaced_nodes list
         if not found and node not in unplaced_nodes:
-            unplaced_nodes.append(node)
+
+            if node["seen"] >= 2:
+                row = 1
+                column = len(trees)+1
+                idx = len(plot_data["X"])
+                trees[node["id"]] = {
+                                "row":row,        
+                                "column":column,
+                                "root":node["id"],
+                                "idx": idx,
+                                "subnodes":{}
+                                }      
+                plot_data["X"].append(column)
+                plot_data["Y"].append(row)
+                plot_data["root"].append(node["id"])
+                plot_data["labels"].append(node["id"])
+                plot_data["tree_widths"][node["id"]] = 1
+                plot_data["texts"].append(format_text(node["text"]))
+
+                if row not in plot_data["level_widths"]:
+                    plot_data["level_widths"][row] = 0
+            
+                plot_data["level_widths"][row] += 1
+
+            else:
+                node["seen"] += 1
+                unplaced_nodes.append(node)
 
     plot_data["max_width"] =  max(plot_data["level_widths"].values())
     return plot_data
@@ -237,14 +266,16 @@ def add_lines(fig, plot_data, opacity:float, legendgroup:str):
                                 ))
 
 
-def add_nodes(fig, plot_data, colors:list, opacity:float, legendgroup:str):
+def add_nodes(fig, plot_data, colors:list, opacity:float, legendgroup:str, node_size:int):
     fig.add_trace(go.Scatter(
                             x=plot_data["X"],
                             y=plot_data["Y"],
                             mode='markers+text',
                             name=legendgroup,
-                            marker=dict(symbol='diamond-wide',
-                                            size=50,
+                            marker=dict(    
+                                            #symbol='diamond-wide',
+                                            symbol='circle',
+                                            size=node_size,
                                             color=colors.pop(0),
                                             #opacity=colors,
                                             ),
@@ -269,6 +300,7 @@ def reformat_links(data):
 
     for node in data:
         link  = node["link"]
+
         if isinstance(link, int):
             node["link_int"] = link
             node["link"] = data[link]["id"]
@@ -276,7 +308,7 @@ def reformat_links(data):
             node["link_int"] = label2idx[link]
 
 
-def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0, legendgroup:str=None): # nodes:list, links:list, color:str):
+def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0, legendgroup:str=None, node_size:int=90): # nodes:list, links:list, color:str):
 
     data = deepcopy(data)
     colors = deepcopy(colors)
@@ -303,25 +335,28 @@ def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0
     
     #create the plot
     add_lines(fig, plot_data, opacity=opacity, legendgroup=legendgroup)
-    add_nodes(fig, plot_data, colors=colors, opacity=opacity, legendgroup=legendgroup)
+    add_nodes(fig, plot_data, colors=colors, opacity=opacity, legendgroup=legendgroup, node_size=node_size)
     #add_node_text(fig, plot_data)
     
     return plot_data["max_depth"], plot_data["max_width"]
 
 
-def hot_tree(data, gold_data=None, colors="Plotly", reverse=True, title:str="", save_to:str=None):
+def hot_tree(data, gold_data=None, reverse=True, title:str="", save_to:str=None, node_size=90):
 
     fig = go.Figure()
 
-    #get colors scale
-    for scale in [px.colors.sequential, px.colors.qualitative, px.colors.cyclical]:
-        if hasattr(scale, colors):
-            colors = getattr(scale, colors) 
-            break
-            
-    if not isinstance(colors,list):
-        raise KeyError(f"{colors} is not a supported plotly colorscale. scales can be found here: https://plotly.com/python/builtin-colorscales/")
-    
+    # node_colors = ['Purples', 'Blues','BuPu','GnBu']
+    # link_colors = [ 'Greens', 'Reds', 'Oranges', 'RdPu','OrRd']
+    color_ranges =  [
+                     'YlGnBu', 'PuBuGn', 'YlGn', 'BuGn', 'YlGn', 
+                     'YlOrBr', 'YlOrRd','Blues', 'OrRd', 'PuRd','BuPu','Purples', 'RdPu',
+                     'GnBu', 'PuBu', 'Oranges', 'YlGnBu', 'BuGn', 'YlGn', 'Reds','Greens', 
+                     ]
+    # node_colors = [ get_color_hex(c,1.0) for c in node_colors]
+    # link_colors = [ get_color_hex(c,1.0) for c in link_colors]
+    colors = [ get_color_hex(c,0.8) for c in color_ranges]
+    #random.shuffle(colors)
+
     # gold data is added , we can create a tree with high opacity that just sits static in the background
     if gold_data:
         replacement_legend(fig, "gold")
@@ -331,7 +366,8 @@ def hot_tree(data, gold_data=None, colors="Plotly", reverse=True, title:str="", 
                                                             colors=colors,
                                                             reverse=reverse,
                                                             opacity=0.3,
-                                                            legendgroup="gold"
+                                                            legendgroup="gold",
+                                                            node_size=node_size
                                                             )
 
     legendgroup = None
@@ -344,7 +380,8 @@ def hot_tree(data, gold_data=None, colors="Plotly", reverse=True, title:str="", 
                                             data=data,
                                             colors=colors,
                                             reverse=reverse,
-                                            legendgroup=legendgroup
+                                            legendgroup=legendgroup,
+                                            node_size=node_size
                                             )  
 
     if gold_data:
