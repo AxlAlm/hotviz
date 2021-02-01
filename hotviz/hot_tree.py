@@ -50,13 +50,12 @@ def normalize_row_coordinates(plot_data):
         plot_data["X"] = X.tolist()
 
 
-def set_link_coordinates(plot_data, labels:list, colors:list):
+def set_link_coordinates(plot_data, labels:list):
 
     for label in labels:
         plot_data["link_xy"][label] = {
                                         "X":[],
                                         "Y": [],
-                                        "style": dict(color=colors.pop(0), width=2, dash='solid')
                                         }
         
     for link_label, idx_of_parent, idx_of_child in plot_data["links"]:
@@ -84,7 +83,8 @@ def get_plot_data(data):
             plot_data["Y"].append(row)
             plot_data["root"].append(root)
             plot_data["links"].append((node["link_label"], parent_node["idx"], idx))
-            plot_data["labels"].append(node["id"])
+            plot_data["ids"].append(node["id"])
+            plot_data["labels"].append(node["label"])
             plot_data["max_depth"] = max(plot_data["max_depth"], row)
             plot_data["texts"].append(format_text(node["text"]))
             parent_node["subnodes"][node["id"]] =  {
@@ -110,6 +110,7 @@ def get_plot_data(data):
                 "Y":[], 
                 "links": [],
                 "labels": [],
+                "ids": [],
                 "texts": [],
                 "root":[], 
                 "max_depth":0, 
@@ -139,8 +140,9 @@ def get_plot_data(data):
                             }
             plot_data["X"].append(column)
             plot_data["Y"].append(row)
+            plot_data["labels"].append(node["label"])
             plot_data["root"].append(node["id"])
-            plot_data["labels"].append(node["id"])
+            plot_data["ids"].append(node["id"])
             plot_data["tree_widths"][node["id"]] = 1
             plot_data["texts"].append(format_text(node["text"]))
 
@@ -197,25 +199,11 @@ def add_node_text(fig, plot_data):
                                 font=dict(color='black', size=10),
                                 showarrow=False
                                 ) 
-                    for i, l in enumerate(plot_data["labels"])]
+                    for i, l in enumerate(plot_data["ids"])]
 
     fig.update_layout(
                         annotations=annotations,
                         )
-
-
-def create_ids(data):
-    node_stack = {}
-    for node in data:
-        label = node["label"]
-
-        if label not in node_stack:
-            node_stack[label] = []
-        
-        node_id = f"{label}_{len(node_stack[label])}"
-        
-        node_stack[label].append(label)
-        node["id"] = node_id
 
 
 def replacement_legend(fig, legendgroup:str):
@@ -243,15 +231,15 @@ def replacement_legend(fig, legendgroup:str):
                         )
     
 
-def add_lines(fig, plot_data, opacity:float, legendgroup:str):
+def add_lines(fig, plot_data, opacity:float, legendgroup:str, link_label2color:dict):
     for label, link_data in plot_data["link_xy"].items():
 
-        if not label:
-            style = dict(color="black", width=2, dash='solid')
-            showlegend = False 
-        else:
-            style = link_data["style"]
-            showlegend = True
+        legend = f"{legendgroup}-{label}"
+        style = dict(
+                    color=link_label2color[label], 
+                    width=2, 
+                    dash='solid'
+                    )
 
         fig.add_trace(go.Scatter(
                                 x=link_data["X"],
@@ -260,34 +248,45 @@ def add_lines(fig, plot_data, opacity:float, legendgroup:str):
                                 name=label,
                                 line=style,
                                 hoverinfo="none",
-                                showlegend=True if legendgroup is None else False,
+                                showlegend=True,
                                 legendgroup=legendgroup,
                                 opacity=opacity,
                                 ))
 
 
-def add_nodes(fig, plot_data, colors:list, opacity:float, legendgroup:str, node_size:int):
-    fig.add_trace(go.Scatter(
-                            x=plot_data["X"],
-                            y=plot_data["Y"],
-                            mode='markers+text',
-                            name=legendgroup,
-                            marker=dict(    
-                                            #symbol='diamond-wide',
-                                            symbol='circle',
-                                            size=node_size,
-                                            color=colors.pop(0),
-                                            #opacity=colors,
-                                            ),
-                            text=plot_data["labels"],
-                            hovertext=plot_data["texts"],
-                            hoverinfo='text',
-                            showlegend=False,
-                            legendgroup=legendgroup,
-                            opacity=opacity,
-                            textposition='middle center'
-                            
-                            ))
+def add_nodes(fig, plot_data, opacity:float, legendgroup:str, node_size:int, label2color:dict):
+
+
+    groups = {l:{"X":[],"Y":[], "texts":[], "ids":[]} for l in label2color.keys()}
+    for x,y, text, ID, label in zip(plot_data["X"], plot_data["Y"], plot_data["texts"], plot_data["ids"], plot_data["labels"]):
+        groups[label]["X"].append(x)
+        groups[label]["Y"].append(y)
+        groups[label]["ids"].append(ID)
+        groups[label]["texts"].append(text)
+
+    for label, plot_data in groups.items():
+        legend = f"{legendgroup}-{label}"
+        fig.add_trace(go.Scatter(
+                                x=plot_data["X"],
+                                y=plot_data["Y"],
+                                mode='markers+text',
+                                name=label,
+                                legendgroup=legendgroup,
+                                showlegend=True,
+                                marker=dict(    
+                                                #symbol='diamond-wide',
+                                                symbol='circle',
+                                                size=node_size,
+                                                color=label2color[label],
+                                                #opacity=colors,
+                                                ),
+                                text=plot_data["ids"],
+                                hovertext=plot_data["texts"],
+                                hoverinfo='text',
+                                opacity=opacity,
+                                textposition='middle center'
+                                
+                                ))
 
 
 def format_text(text:str):
@@ -295,8 +294,11 @@ def format_text(text:str):
     return "<br>".join([" ".join(tokens[i:i+10]) for i in range(0,len(tokens),10)])
 
 
-def reformat_links(data):
-    label2idx = {d["label"]:i for i,d in enumerate(data)}
+def convert_links_ids(data):
+    """
+    changes link from int to string id
+    """
+    id2idx = {d["id"]:i for i,d in enumerate(data)}
 
     for node in data:
         link  = node["link"]
@@ -305,20 +307,41 @@ def reformat_links(data):
             node["link_int"] = link
             node["link"] = data[link]["id"]
         else:
-            node["link_int"] = label2idx[link]
+            node["link_int"] = id2idx[link]
 
 
-def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0, legendgroup:str=None, node_size:int=90): # nodes:list, links:list, color:str):
+def create_ids(data):
+    node_stack = {}
+    for node in data:
+        label = node["label"]
+
+        if label not in node_stack:
+            node_stack[label] = []
+        
+        node_id = f"{label}_{len(node_stack[label])}"
+        
+        node_stack[label].append(label)
+        node["id"] = node_id
+
+
+def create_tree_plot(fig, 
+                    data:dict,
+                    label2color:dict,
+                    link_label2color:dict,                      
+                    reverse:bool, 
+                    opacity:float=1.0, 
+                    legendgroup:str=None, 
+                    node_size:int=90
+                    ): # nodes:list, links:list, color:str):
 
     data = deepcopy(data)
-    colors = deepcopy(colors)
 
     #we turn labels into ids
     if "id" not in data[0]:
         create_ids(data)
 
-    # change links to labels or add int to link_int so we can sort
-    reformat_links(data)
+    # change links
+    convert_links_ids(data)
 
     # sort data to untangle trees
     data = sorted(data, key=lambda x:x["link_int"])
@@ -330,32 +353,65 @@ def create_tree_plot(fig, data:dict, colors:str, reverse:bool, opacity:float=1.0
     normalize_row_coordinates(plot_data)
 
     # when we have normalized X and Y corridnates we can set up all the links
-    link_labels = sorted(set([d["link_label"] for d in data]))
-    set_link_coordinates(plot_data, labels=link_labels, colors=colors)
+    link_labels = list(link_label2color.keys())
+    set_link_coordinates(plot_data, labels=link_labels)
     
     #create the plot
-    add_lines(fig, plot_data, opacity=opacity, legendgroup=legendgroup)
-    add_nodes(fig, plot_data, colors=colors, opacity=opacity, legendgroup=legendgroup, node_size=node_size)
+    add_lines(fig, plot_data, opacity=opacity, legendgroup=legendgroup, link_label2color=link_label2color)
+    add_nodes(fig, plot_data, opacity=opacity, legendgroup=legendgroup, node_size=node_size, label2color=label2color)
     #add_node_text(fig, plot_data)
     
     return plot_data["max_depth"], plot_data["max_width"]
 
 
-def hot_tree(data, gold_data=None, reverse=True, title:str="", save_to:str=None, node_size=90):
+def get_colors(data, gold_data, labels, link_labels, label2color, link_label2color):
 
-    fig = go.Figure()
 
-    # node_colors = ['Purples', 'Blues','BuPu','GnBu']
-    # link_colors = [ 'Greens', 'Reds', 'Oranges', 'RdPu','OrRd']
-    color_ranges =  [
-                     'YlGnBu', 'PuBuGn', 'YlGn', 'BuGn', 'YlGn', 
-                     'YlOrBr', 'YlOrRd','Blues', 'OrRd', 'PuRd','BuPu','Purples', 'RdPu',
-                     'GnBu', 'PuBu', 'Oranges', 'YlGnBu', 'BuGn', 'YlGn', 'Reds','Greens', 
-                     ]
-    # node_colors = [ get_color_hex(c,1.0) for c in node_colors]
-    # link_colors = [ get_color_hex(c,1.0) for c in link_colors]
-    colors = [ get_color_hex(c,0.8) for c in color_ranges]
-    #random.shuffle(colors)
+    if not labels:
+        labels = set([d["label"] for d in data])
+
+        if gold_data:
+            labels.update([d["label"] for d in gold_data])
+        
+        labels = sorted(labels)
+
+    if not link_labels:
+        
+        link_labels = set([d["link_label"] for d in data])
+
+        if gold_data:
+            link_labels.update([d["link_label"] for d in gold_data])
+
+        link_labels = sorted(link_labels)
+
+    if labels and not label2color:
+        lc = ["#5ac18e", "#7fe5f0", "#ffa500", "#008080", "#ff4040", "#8a2be2", "#b6fcd5", "#b4eeb4", "#ff7f50"]
+        label2color = {l:lc[i] for i,l in enumerate(labels)}
+
+    if link_labels and not link_label2color:
+        rc = ["#e43518", "#25c130", "#7c1dbb", "#998002", "#0f34d4", "#f58a00"]
+
+        link_label2color = {r:rc[i] for i,r in enumerate(link_labels)}
+
+    return label2color, link_label2color
+
+
+def hot_tree(
+            data, 
+            gold_data=None, 
+            labels:list=None, 
+            link_labels:list=None, 
+            reverse:bool=True, 
+            title:str="", 
+            save_to:str=None, 
+            node_size=90,
+            label2color:dict=None,
+            link_label2color:dict=None,
+            ):
+
+    label2color, link_label2color = get_colors(data, gold_data, labels, link_labels, label2color, link_label2color)
+
+    fig = go.Figure()   
 
     # gold data is added , we can create a tree with high opacity that just sits static in the background
     if gold_data:
@@ -363,7 +419,8 @@ def hot_tree(data, gold_data=None, reverse=True, title:str="", save_to:str=None,
         gold_max_depth, gold_max_width = create_tree_plot(  
                                                             fig, 
                                                             data=gold_data,
-                                                            colors=colors,
+                                                            label2color=label2color,
+                                                            link_label2color=link_label2color,
                                                             reverse=reverse,
                                                             opacity=0.3,
                                                             legendgroup="gold",
@@ -378,7 +435,8 @@ def hot_tree(data, gold_data=None, reverse=True, title:str="", save_to:str=None,
     max_depth, max_width = create_tree_plot(  
                                             fig, 
                                             data=data,
-                                            colors=colors,
+                                            label2color=label2color,
+                                            link_label2color=link_label2color,                                            
                                             reverse=reverse,
                                             legendgroup=legendgroup,
                                             node_size=node_size
